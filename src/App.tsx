@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import './App.css'
 
-type RouteKey = 'home' | 'solutions' | 'services' | 'industries' | 'work' | 'company' | 'careers' | 'contact'
+type StaticPage = 'home' | 'solutions' | 'services' | 'industries' | 'work' | 'company' | 'careers' | 'contact'
+type RouteState = { page: StaticPage } | { page: 'case'; slug: string } | { page: 'job'; slug: string } | { page: 'notfound' }
 type RevealProps = { children: ReactNode; className?: string; delay?: number }
-
-type Solution = {
-  code: string
-  title: string
-  copy: string
-  tags: string[]
-  visual: 'platform' | 'automation' | 'commerce'
-}
+type Solution = { code: string; title: string; copy: string; tags: string[]; visual: 'platform' | 'automation' | 'commerce' }
+type Project = { slug: string; name: string; type: string; copy: string; visual: string; focus: string[]; context: string; direction: string }
+type Job = { slug: string; title: string; department: string; location: string; summary: string; strengths: string[] }
 
 const solutions: Solution[] = [
   { code: '01', title: 'Digital Platforms', copy: 'Portals, internal systems and customer-facing products built around real business workflows.', tags: ['Portals', 'Dashboards', 'SaaS'], visual: 'platform' },
@@ -33,16 +29,16 @@ const industries = [
   ['Startups & New Ventures', 'From product definition to launch-ready digital experiences.', 'Startups'],
 ]
 
-const projects = [
-  ['Flamingo Park', 'Commerce Platform', 'A premium retail experience focused on discovery, speed and customer confidence.', 'commerce'],
-  ['LedgerPro', 'Business SaaS', 'A business operations platform that turns complex workflows into a clean product experience.', 'saas'],
-  ['Kayan', 'Digital Marketplace', 'A platform designed around trusted connections, structured journeys and scalable UX.', 'marketplace'],
+const projects: Project[] = [
+  { slug: 'flamingo-park', name: 'Flamingo Park', type: 'Commerce Platform', copy: 'A premium retail experience focused on discovery, speed and customer confidence.', visual: 'commerce', focus: ['Commerce UX', 'Catalog', 'Responsive UI'], context: 'A commerce experience needs to make a large product catalog feel simple, trustworthy and fast across different devices.', direction: 'The product direction centers on clear discovery, consistent product presentation and a storefront system that can grow without becoming visually noisy.' },
+  { slug: 'ledgerpro', name: 'LedgerPro', type: 'Business SaaS', copy: 'A business operations platform that turns complex workflows into a clean product experience.', visual: 'saas', focus: ['SaaS UX', 'Dashboards', 'Operations'], context: 'Operational software often becomes difficult to navigate as more workflows, roles and reporting needs are added.', direction: 'The system direction uses a clear information hierarchy, reusable dashboard patterns and focused workflows for day-to-day business operations.' },
+  { slug: 'kayan', name: 'Kayan', type: 'Digital Marketplace', copy: 'A platform designed around trusted connections, structured journeys and scalable UX.', visual: 'marketplace', focus: ['Marketplace', 'Trust UX', 'Platform'], context: 'A marketplace needs to help different user groups understand what happens next while building trust throughout the journey.', direction: 'The product structure emphasizes guided flows, clear states and a flexible platform foundation that can support future marketplace features.' },
 ]
 
-const jobs = [
-  ['Frontend Developer', 'Engineering', 'Remote / Hybrid'],
-  ['UI/UX Designer', 'Design', 'Remote'],
-  ['AI Engineer', 'AI & Automation', 'Remote / Hybrid'],
+const jobs: Job[] = [
+  { slug: 'frontend-developer', title: 'Frontend Developer', department: 'Engineering', location: 'Remote / Hybrid', summary: 'Build polished React interfaces, reusable systems and frontend experiences that stay fast as products grow.', strengths: ['React & TypeScript', 'Responsive UI', 'Product thinking'] },
+  { slug: 'ui-ux-designer', title: 'UI/UX Designer', department: 'Design', location: 'Remote', summary: 'Turn product requirements into clear flows, strong visual systems and interfaces that feel intentional.', strengths: ['Product UX', 'Design systems', 'Prototyping'] },
+  { slug: 'ai-engineer', title: 'AI Engineer', department: 'AI & Automation', location: 'Remote / Hybrid', summary: 'Design practical AI features and automations that connect product experiences with useful intelligence.', strengths: ['AI workflows', 'Integration thinking', 'Automation'] },
 ]
 
 const processSteps = [
@@ -54,10 +50,22 @@ const processSteps = [
 
 const stack = ['React', 'TypeScript', 'Design Systems', 'API Integration', 'AI Workflows', 'Cloud Platforms', 'Automation', 'Analytics']
 
-function currentRoute(): RouteKey {
-  const value = window.location.hash.replace('#/', '').trim()
-  if (['solutions', 'services', 'industries', 'work', 'company', 'careers', 'contact'].includes(value)) return value as RouteKey
-  return 'home'
+const atlasItems = [
+  { label: 'Customer', title: 'Customer experience', copy: 'Interfaces that make discovery, decisions and actions feel simple.', tags: ['Commerce', 'Portals', 'Self-service'] },
+  { label: 'Operations', title: 'Business operations', copy: 'Systems that bring daily workflows, information and team actions into one place.', tags: ['Dashboards', 'Internal tools', 'Workflows'] },
+  { label: 'Intelligence', title: 'AI intelligence', copy: 'Useful intelligence layered into the product where it can reduce friction or repetitive work.', tags: ['Assistants', 'Smart search', 'Automation'] },
+  { label: 'Growth', title: 'Scalable foundation', copy: 'Reusable frontend and product systems designed to support the next stage without starting over.', tags: ['Architecture', 'Design system', 'Analytics'] },
+]
+
+function currentRoute(): RouteState {
+  const raw = window.location.hash.replace(/^#\/?/, '').replace(/\/+$/, '')
+  if (!raw) return { page: 'home' }
+  const parts = raw.split('/')
+  const staticPages: StaticPage[] = ['home', 'solutions', 'services', 'industries', 'work', 'company', 'careers', 'contact']
+  if (parts[0] === 'work' && parts[1]) return { page: 'case', slug: parts[1] }
+  if (parts[0] === 'careers' && parts[1]) return { page: 'job', slug: parts[1] }
+  if (staticPages.includes(parts[0] as StaticPage)) return { page: parts[0] as StaticPage }
+  return { page: 'notfound' }
 }
 
 function useReducedMotion() {
@@ -82,7 +90,7 @@ function Reveal({ children, className = '', delay = 0 }: RevealProps) {
         node.classList.add('is-visible')
         observer.unobserve(node)
       }
-    }, { threshold: 0.12 })
+    }, { threshold: 0.1 })
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
@@ -110,11 +118,12 @@ function ScrollProgress() {
   return <div className="scroll-progress"><i style={{ width: `${progress}%` }} /></div>
 }
 
-function Header({ route }: { route: RouteKey }) {
+function Header({ route }: { route: RouteState }) {
   const [open, setOpen] = useState(false)
-  const links: Array<[RouteKey, string]> = [['solutions', 'Solutions'], ['services', 'Services'], ['industries', 'Industries'], ['work', 'Work'], ['company', 'Company'], ['careers', 'Careers']]
+  const active = route.page === 'case' ? 'work' : route.page === 'job' ? 'careers' : route.page
+  const links: Array<[StaticPage, string]> = [['solutions', 'Solutions'], ['services', 'Services'], ['industries', 'Industries'], ['work', 'Work'], ['company', 'Company'], ['careers', 'Careers']]
   useEffect(() => setOpen(false), [route])
-  return <header className="site-header"><ScrollProgress /><div className="nav-shell"><Logo /><nav className={open ? 'nav-menu open' : 'nav-menu'}>{links.map(([key, label]) => <a key={key} href={`#/${key}`} className={route === key ? 'active' : ''}>{label}</a>)}</nav><div className="nav-actions"><a className="nav-contact" href="#/contact">Contact</a><a className="nav-cta" href="#/contact">Start a project <Arrow /></a><button className="menu-toggle" type="button" aria-label="Toggle menu" onClick={() => setOpen(!open)}><span /><span /></button></div></div></header>
+  return <header className="site-header"><ScrollProgress /><div className="nav-shell"><Logo /><nav className={open ? 'nav-menu open' : 'nav-menu'}>{links.map(([key, label]) => <a key={key} href={`#/${key}`} className={active === key ? 'active' : ''}>{label}</a>)}</nav><div className="nav-actions"><a className="nav-contact" href="#/contact">Contact</a><a className="nav-cta" href="#/contact">Start a project <Arrow /></a><button className="menu-toggle" type="button" aria-label="Toggle menu" onClick={() => setOpen(!open)}><span /><span /></button></div></div></header>
 }
 
 function SectionTitle({ eyebrow, title, copy }: { eyebrow: string; title: string; copy?: string }) {
@@ -129,15 +138,13 @@ function HeroVisual() {
     { name: 'Automation', label: 'AI workflow engine', metrics: [['Requests routed', '8,421', '+24.1%'], ['Rules active', '128', 'Stable'], ['Avg. response', '1.8s', 'Fast']] },
     { name: 'Commerce', label: 'Customer experience', metrics: [['Catalog items', '10K+', 'Ready'], ['Journeys', '24', 'Optimized'], ['Channels', '3', 'Connected']] },
   ]
-
   useEffect(() => {
     if (reduced) return
     const timer = window.setInterval(() => setMode((current) => (current + 1) % modes.length), 4200)
     return () => window.clearInterval(timer)
   }, [reduced, modes.length])
-
   const active = modes[mode]
-  return <div className="hero-visual" aria-label="Interactive Smart System product preview"><div className="visual-glow visual-glow-a" /><div className="visual-glow visual-glow-b" /><div className="command-window"><div className="command-top"><div className="window-dots"><i /><i /><i /></div><span>SMART SYSTEM / CONTROL CENTER</span><b>Live</b></div><div className="visual-mode-tabs">{modes.map((item, index) => <button key={item.name} className={mode === index ? 'active' : ''} onClick={() => setMode(index)}>{item.name}</button>)}</div><div className="command-layout"><aside className="command-side"><div className="side-logo">S</div><i className="active" /><i /><i /><i /><i /></aside><main className="command-main"><div className="command-head"><div><small>{active.name} overview</small><strong>{active.label}</strong></div><button>Last 30 days</button></div><div className="metric-grid">{active.metrics.map(([title, value, change]) => <article key={title}><span>{title}</span><strong>{value}</strong><small>{change}</small></article>)}</div><div className="command-lower"><div className="chart-panel"><div className="panel-head"><span>Performance</span><small>Realtime</small></div><div className="bar-chart">{[38,58,44,76,62,88,70,96,73,82,91,68].map((height, index) => <i key={`${mode}-${index}`} style={{ height: `${height}%`, animationDelay: `${index * 55}ms` }} />)}</div></div><div className="workflow-panel"><div className="panel-head"><span>Smart workflow</span><small className="status-ok">Running</small></div><div className="flow-step active"><b>01</b><div><strong>Signal received</strong><span>Input connected</span></div><i>✓</i></div><div className="flow-connector" /><div className="flow-step active"><b>02</b><div><strong>AI processing</strong><span>Context analyzed</span></div><i>✓</i></div><div className="flow-connector" /><div className="flow-step"><b>03</b><div><strong>Action routed</strong><span>Workflow ready</span></div><i>→</i></div></div></div></main></div></div><div className="floating-card float-card-a"><span>Automation layer</span><strong>Connected systems</strong></div><div className="floating-card float-card-b"><span>Platform health</span><strong>All services online</strong></div></div>
+  return <div className="hero-visual" aria-label="Interactive Smart System product preview"><div className="visual-glow visual-glow-a" /><div className="visual-glow visual-glow-b" /><div className="command-window"><div className="command-top"><div className="window-dots"><i /><i /><i /></div><span>SMART SYSTEM / CONTROL CENTER</span><b>Live</b></div><div className="visual-mode-tabs">{modes.map((item, index) => <button key={item.name} className={mode === index ? 'active' : ''} onClick={() => setMode(index)}>{item.name}</button>)}</div><div className="command-layout"><aside className="command-side"><div className="side-logo">S</div><i className="active" /><i /><i /><i /><i /></aside><main className="command-main"><div className="command-head"><div><small>{active.name} overview</small><strong>{active.label}</strong></div><button>Live view</button></div><div className="metric-grid">{active.metrics.map(([title, value, change]) => <article key={title}><span>{title}</span><strong>{value}</strong><small>{change}</small></article>)}</div><div className="command-lower"><div className="chart-panel"><div className="panel-head"><span>Performance</span><small>Realtime</small></div><div className="bar-chart">{[38,58,44,76,62,88,70,96,73,82,91,68].map((height, index) => <i key={`${mode}-${index}`} style={{ height: `${height}%`, animationDelay: `${index * 55}ms` }} />)}</div></div><div className="workflow-panel"><div className="panel-head"><span>Smart workflow</span><small className="status-ok">Running</small></div><div className="flow-step active"><b>01</b><div><strong>Signal received</strong><span>Input connected</span></div><i>✓</i></div><div className="flow-connector" /><div className="flow-step active"><b>02</b><div><strong>AI processing</strong><span>Context analyzed</span></div><i>✓</i></div><div className="flow-connector" /><div className="flow-step"><b>03</b><div><strong>Action routed</strong><span>Workflow ready</span></div><i>→</i></div></div></div></main></div></div><div className="floating-card float-card-a"><span>Automation layer</span><strong>Connected systems</strong></div><div className="floating-card float-card-b"><span>Platform health</span><strong>All services online</strong></div></div>
 }
 
 function MiniVisual({ type }: { type: Solution['visual'] }) {
@@ -160,16 +167,37 @@ function ProcessSection() {
   return <section className="process-band"><div className="section"><SectionTitle eyebrow="Delivery system" title="A clear path from business problem to working product." copy="Every phase has a purpose, an output and a clear handoff into the next one." /><Reveal className="process-console"><div className="process-rail">{processSteps.map(([number, title], index) => <button key={number} className={active === index ? 'active' : ''} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} onClick={() => setActive(index)}><span>{number}</span><strong>{title}</strong><i /></button>)}</div><div className="process-detail"><div><span className="process-code">PHASE {processSteps[active][0]}</span><h3>{processSteps[active][1]}</h3><p>{processSteps[active][2]}</p><div className="process-checks"><span>Clear output</span><span>Direct feedback</span><span>Ready for next phase</span></div></div><div className="process-orbit"><i /><i /><i /><b>{active + 1}</b></div></div></Reveal></div></section>
 }
 
+function SystemAtlas() {
+  const [active, setActive] = useState(0)
+  const item = atlasItems[active]
+  return <section className="atlas-band"><div className="section"><SectionTitle eyebrow="System atlas" title="We connect the parts of a digital business that should not feel disconnected." copy="Customer experience, internal operations, intelligence and growth are designed as one system." /><Reveal className="system-atlas"><div className="atlas-map"><div className="atlas-ring atlas-ring-one" /><div className="atlas-ring atlas-ring-two" /><div className="atlas-core"><span>SMART</span><strong>SYSTEM</strong><i /></div>{atlasItems.map((node, index) => <button key={node.label} className={`atlas-node atlas-node-${index + 1} ${active === index ? 'active' : ''}`} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} onClick={() => setActive(index)}><span>0{index + 1}</span><strong>{node.label}</strong></button>)}</div><div className="atlas-detail" key={item.label}><span>0{active + 1} / CONNECTED LAYER</span><h3>{item.title}</h3><p>{item.copy}</p><div>{item.tags.map((tag) => <i key={tag}>{tag}</i>)}</div><a href="#/solutions">Explore solutions <Arrow /></a></div></Reveal></div></section>
+}
+
+function EngagementModels() {
+  const models = [
+    ['01', 'Build from zero', 'Turn a new business idea or workflow into a clear digital product foundation.', 'discover'],
+    ['02', 'Modernize a product', 'Restructure an existing interface or frontend so it feels clearer, faster and easier to scale.', 'modernize'],
+    ['03', 'Automate a workflow', 'Add practical AI and automation around repetitive work without rebuilding everything.', 'automate'],
+  ]
+  return <section className="engagement-band"><div className="section"><SectionTitle eyebrow="Ways to engage" title="Start from where the business is today." copy="The engagement can begin with a new product, an existing system that needs improvement, or one workflow worth automating." /><div className="engagement-grid">{models.map(([number, title, copy, kind], index) => <Reveal key={title} delay={index * 80}><article className={`engagement-card ${kind}`}><div className="engagement-head"><span>{number}</span><b>{kind === 'discover' ? 'NEW' : kind === 'modernize' ? 'EVOLVE' : 'AUTOMATE'}</b></div><div className="engagement-art"><i /><i /><i /><b /></div><h3>{title}</h3><p>{copy}</p><a href="#/contact">Start here <Arrow /></a></article></Reveal>)}</div></div></section>
+}
+
+function ProjectVisual({ project, index }: { project: Project; index: number }) {
+  return <div className={`project-art ${project.visual}`}><div className="project-screen"><div className="project-top"><i /><i /><i /></div><div className="project-body"><aside /><main><span /><span /><div><i /><i /><i /></div></main></div></div><b>0{index + 1}</b></div>
+}
+
 function HomePage() {
   return <>
     <section className="hero-section"><div className="hero-inner"><Reveal className="hero-copy"><span className="hero-badge"><i /> Technology for modern business</span><h1>We build <em>digital systems</em> that make companies work smarter.</h1><p>Smart System combines product design, frontend engineering and AI to create modern platforms, automations and customer experiences.</p><div className="hero-actions"><a className="btn btn-primary" href="#/solutions">Explore solutions <Arrow /></a><a className="btn btn-ghost" href="#/contact">Discuss a project</a></div><div className="hero-points"><span>✓ Product strategy</span><span>✓ UI / UX systems</span><span>✓ React engineering</span><span>✓ AI integration</span></div></Reveal><Reveal className="hero-visual-wrap" delay={120}><HeroVisual /></Reveal></div></section>
     <section className="signal-strip"><div><small>Core focus</small><strong>Business systems</strong></div><div><small>Built with</small><strong>Design + Engineering + AI</strong></div><div><small>Delivery model</small><strong>Direct collaboration</strong></div><div><small>Designed for</small><strong>Growth & scale</strong></div></section>
     <TechMarquee />
     <section className="section"><SectionTitle eyebrow="Solutions" title="Technology solutions built around real business operations." copy="Not generic pages. We design systems that improve workflows, customer experience and the way teams use information." /><div className="solutions-grid">{solutions.map((solution, index) => <SolutionCard key={solution.code} solution={solution} index={index} />)}</div></section>
+    <SystemAtlas />
     <section className="capabilities-section"><div className="section dark-inner"><SectionTitle eyebrow="Capabilities" title="One company across product, design, engineering and AI." copy="The work stays connected from the business requirement to the final interface and technical system." /><div className="capabilities-grid">{services.slice(0,4).map(([title, copy], index) => <Reveal key={title} delay={index * 80}><article><span>0{index + 1}</span><div className="capability-icon">{index + 1}</div><h3>{title}</h3><p>{copy}</p></article></Reveal>)}</div></div></section>
     <ProcessSection />
+    <EngagementModels />
     <section className="section"><SectionTitle eyebrow="Industries" title="Flexible technology for different business models." copy="We adapt the same product discipline to the operational reality of each industry." /><div className="industry-grid">{industries.map(([title, copy, label], index) => <Reveal key={title} delay={index * 80}><article><span className="industry-label">{label}</span><div className="industry-art"><i /><i /><i /></div><h3>{title}</h3><p>{copy}</p><a href="#/industries">Explore sector <Arrow /></a></article></Reveal>)}</div></section>
-    <section className="work-band"><div className="section"><SectionTitle eyebrow="Selected work" title="A growing portfolio of platforms, commerce and business software." copy="Case studies are part of the company story — not the whole story." /><div className="project-grid">{projects.map(([name, type, copy, visual], index) => <Reveal key={name} delay={index * 90}><article className="project-card"><div className={`project-art ${visual}`}><div className="project-screen"><div className="project-top"><i /><i /><i /></div><div className="project-body"><aside /><main><span /><span /><div><i /><i /><i /></div></main></div></div><b>0{index + 1}</b></div><div className="project-copy"><span>{type}</span><h3>{name}</h3><p>{copy}</p><a href="#/work">View case study <Arrow /></a></div></article></Reveal>)}</div></div></section>
+    <section className="work-band"><div className="section"><SectionTitle eyebrow="Selected work" title="A growing portfolio of platforms, commerce and business software." copy="Case studies are part of the company story — not the whole story." /><div className="project-grid">{projects.map((project, index) => <Reveal key={project.slug} delay={index * 90}><article className="project-card"><ProjectVisual project={project} index={index} /><div className="project-copy"><span>{project.type}</span><h3>{project.name}</h3><p>{project.copy}</p><a href={`#/work/${project.slug}`}>Open case study <Arrow /></a></div></article></Reveal>)}</div></div></section>
     <section className="section company-split"><Reveal className="company-copy"><span className="eyebrow">Why Smart System</span><h2>Built to act like a technology partner, not a temporary vendor.</h2><p>We look at the complete system: business needs, user experience, frontend architecture, automation opportunities and what happens after launch.</p><a className="btn btn-dark" href="#/company">About the company <Arrow /></a></Reveal><Reveal className="company-board" delay={120}><div><strong>01</strong><span>Direct communication with the people doing the work.</span></div><div><strong>02</strong><span>Design and engineering decisions made together.</span></div><div><strong>03</strong><span>Systems built for maintainability and growth.</span></div><div><strong>04</strong><span>AI used where it creates practical value.</span></div></Reveal></section>
     <section className="careers-preview"><div className="section"><Reveal className="careers-preview-card"><div><span className="eyebrow">Careers</span><h2>Help us build the next chapter of Smart System.</h2><p>We are interested in people who care about quality, ownership and modern product thinking.</p></div><a className="btn btn-light" href="#/careers">View open roles <Arrow /></a></Reveal></div></section>
     <CorporateCTA />
@@ -177,40 +205,66 @@ function HomePage() {
 }
 
 function PageHero({ eyebrow, title, copy }: { eyebrow: string; title: string; copy: string }) {
-  return <section className="page-hero"><Reveal><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{copy}</p></Reveal></section>
+  return <section className="page-hero creative-page-hero"><Reveal><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{copy}</p></Reveal><div className="page-signal" aria-hidden="true"><i /><i /><i /><b>S</b></div></section>
 }
 
 function SolutionsPage() {
-  return <><PageHero eyebrow="Solutions" title="Digital systems for operations, customers and growth." copy="We build focused solutions that solve specific business problems instead of forcing every company into the same template." /><section className="section page-section"><div className="solution-detail-list">{solutions.map((solution, index) => <Reveal key={solution.code} delay={index * 70}><article className="solution-detail"><div className="solution-detail-copy"><span>{solution.code}</span><h2>{solution.title}</h2><p>{solution.copy}</p><div className="pill-row">{solution.tags.map(tag => <span key={tag}>{tag}</span>)}</div><a href="#/contact">Discuss this solution <Arrow /></a></div><MiniVisual type={solution.visual} /></article></Reveal>)}</div></section><ProcessSection /><CorporateCTA /></>
+  return <><PageHero eyebrow="Solutions" title="Digital systems for operations, customers and growth." copy="We build focused solutions that solve specific business problems instead of forcing every company into the same template." /><section className="section page-section"><div className="solution-detail-list">{solutions.map((solution, index) => <Reveal key={solution.code} delay={index * 70}><article className="solution-detail"><div className="solution-detail-copy"><span>{solution.code}</span><h2>{solution.title}</h2><p>{solution.copy}</p><div className="pill-row">{solution.tags.map(tag => <span key={tag}>{tag}</span>)}</div><a href="#/contact">Discuss this solution <Arrow /></a></div><MiniVisual type={solution.visual} /></article></Reveal>)}</div></section><SystemAtlas /><ProcessSection /><CorporateCTA /></>
 }
 
 function ServicesPage() {
-  return <><PageHero eyebrow="Services" title="The capabilities needed to move from idea to implementation." copy="Use our services individually or combine them as one connected delivery team." /><section className="section page-section service-table">{services.map(([title, copy], index) => <Reveal key={title} delay={index * 60}><article><span>0{index + 1}</span><div><h2>{title}</h2><p>{copy}</p></div><Arrow /></article></Reveal>)}</section><TechMarquee /><ProcessSection /><CorporateCTA /></>
+  return <><PageHero eyebrow="Services" title="The capabilities needed to move from idea to implementation." copy="Use our services individually or combine them as one connected delivery team." /><section className="section page-section"><div className="service-bento">{services.map(([title, copy], index) => <Reveal key={title} delay={index * 60} className={`service-bento-item item-${index + 1}`}><article><span>0{index + 1}</span><div className="service-bento-art"><i /><i /><b /></div><h2>{title}</h2><p>{copy}</p></article></Reveal>)}</div></section><TechMarquee /><ProcessSection /><EngagementModels /><CorporateCTA /></>
+}
+
+function IndustryExplorer() {
+  const [active, setActive] = useState(0)
+  const [title, copy, label] = industries[active]
+  return <Reveal className="industry-explorer"><div className="industry-tabs">{industries.map(([itemTitle, , itemLabel], index) => <button key={itemTitle} className={active === index ? 'active' : ''} onClick={() => setActive(index)}><span>0{index + 1}</span><strong>{itemLabel}</strong></button>)}</div><div className="industry-stage"><div className="industry-stage-copy" key={title}><span>{label} / SYSTEM VIEW</span><h2>{title}</h2><p>{copy}</p><div><i>Customer layer</i><i>Operations layer</i><i>Intelligence layer</i></div><a href="#/contact">Discuss this industry <Arrow /></a></div><div className={`industry-stage-visual stage-${active + 1}`}><div className="stage-window"><header><i /><i /><i /></header><main><aside /><section><span /><span /><div><i /><i /><i /><i /></div></section></main></div><b>0{active + 1}</b></div></div></Reveal>
 }
 
 function IndustriesPage() {
-  return <><PageHero eyebrow="Industries" title="Technology adapted to the way each business operates." copy="The same product discipline, adapted to the context, customers and operations of each industry." /><section className="section page-section"><div className="industry-grid page-industries">{industries.map(([title, copy, label], index) => <Reveal key={title} delay={index * 70}><article><span className="industry-label">{label}</span><div className="industry-art"><i /><i /><i /></div><h3>{title}</h3><p>{copy}</p><a href="#/contact">Discuss your needs <Arrow /></a></article></Reveal>)}</div><Reveal className="industry-matrix"><div><span>Customer experience</span><b>Web + commerce</b></div><div><span>Internal operations</span><b>Portals + dashboards</b></div><div><span>Repetitive workflows</span><b>AI + automation</b></div><div><span>Decision support</span><b>Data + analytics</b></div></Reveal></section><CorporateCTA /></>
+  return <><PageHero eyebrow="Industries" title="Technology adapted to the way each business operates." copy="The same product discipline, adapted to the context, customers and operations of each industry." /><section className="section page-section"><IndustryExplorer /><Reveal className="industry-matrix"><div><span>Customer experience</span><b>Web + commerce</b></div><div><span>Internal operations</span><b>Portals + dashboards</b></div><div><span>Repetitive workflows</span><b>AI + automation</b></div><div><span>Decision support</span><b>Data + analytics</b></div></Reveal></section><SystemAtlas /><CorporateCTA /></>
 }
 
 function WorkPage() {
-  return <><PageHero eyebrow="Work" title="Selected digital products and platform experiences." copy="A growing portfolio across commerce, SaaS and digital platforms." /><section className="work-band page-work"><div className="section page-section"><div className="project-grid">{projects.map(([name, type, copy, visual], index) => <Reveal key={name} delay={index * 90}><article className="project-card"><div className={`project-art ${visual}`}><div className="project-screen"><div className="project-top"><i /><i /><i /></div><div className="project-body"><aside /><main><span /><span /><div><i /><i /><i /></div></main></div></div><b>0{index + 1}</b></div><div className="project-copy"><span>{type}</span><h3>{name}</h3><p>{copy}</p><a href="#/contact">Discuss a similar project <Arrow /></a></div></article></Reveal>)}</div><Reveal className="work-note"><span>How we approach work</span><strong>Business goal → product system → interface → scalable frontend</strong></Reveal></div></section><CorporateCTA /></>
+  return <><PageHero eyebrow="Work" title="Selected digital products and platform experiences." copy="A growing portfolio across commerce, SaaS and digital platforms." /><section className="work-band page-work"><div className="section page-section"><div className="project-grid">{projects.map((project, index) => <Reveal key={project.slug} delay={index * 90}><article className="project-card"><ProjectVisual project={project} index={index} /><div className="project-copy"><span>{project.type}</span><h3>{project.name}</h3><p>{project.copy}</p><a href={`#/work/${project.slug}`}>Open case study <Arrow /></a></div></article></Reveal>)}</div><Reveal className="work-note"><span>How we approach work</span><strong>Business goal → product system → interface → scalable frontend</strong></Reveal></div></section><EngagementModels /><CorporateCTA /></>
+}
+
+function CaseStudyPage({ slug }: { slug: string }) {
+  const project = projects.find((item) => item.slug === slug)
+  if (!project) return <NotFoundPage />
+  const index = projects.findIndex((item) => item.slug === slug)
+  return <><section className="case-hero"><div className="case-hero-copy"><Reveal><a className="back-link" href="#/work">← Back to work</a><span className="eyebrow">{project.type}</span><h1>{project.name}</h1><p>{project.copy}</p><div className="case-focus">{project.focus.map((item) => <span key={item}>{item}</span>)}</div></Reveal></div><Reveal className="case-hero-art" delay={100}><ProjectVisual project={project} index={index} /></Reveal></section><section className="section case-story"><Reveal><span className="eyebrow">Context</span><h2>Designing the system around the real product challenge.</h2></Reveal><Reveal delay={100}><p>{project.context}</p><p>{project.direction}</p></Reveal></section><section className="case-system-band"><div className="section"><SectionTitle eyebrow="Product focus" title="The experience is treated as a connected system, not a collection of isolated screens." /><div className="case-system-grid">{project.focus.map((item, itemIndex) => <Reveal key={item} delay={itemIndex * 70}><article><span>0{itemIndex + 1}</span><div><i /><i /><i /></div><h3>{item}</h3><p>Structured to stay clear, reusable and consistent as the product evolves.</p></article></Reveal>)}</div></div></section><CorporateCTA /></>
 }
 
 function CompanyPage() {
-  return <><PageHero eyebrow="Company" title="A technology company built around clarity, ownership and useful systems." copy="Smart System brings product thinking, frontend engineering and AI capability together in one focused team." /><section className="section company-page-grid"><Reveal><h2>We want to become a long-term technology partner for growing businesses.</h2></Reveal><Reveal delay={100}><p>Our goal is not to produce isolated screens or short-lived websites. We want to understand how a business works, identify where technology can create value and build systems that remain useful as the company grows.</p><p>That means organized delivery, maintainable frontend architecture, practical design decisions and direct communication throughout the project.</p></Reveal></section><section className="leadership-band"><div className="section"><SectionTitle eyebrow="Founding team" title="Two responsibilities. One connected company." copy="The founding structure keeps product, technology and delivery close to every project." /><div className="leadership-grid"><Reveal><article><div className="leader-visual leader-one"><span>MW</span><i /><i /></div><small>Co-founder / Product & Technology</small><h3>Mohammed Waleed</h3><p>Frontend engineering, digital product systems and AI.</p></article></Reveal><Reveal delay={100}><article><div className="leader-visual leader-two"><span>SS</span><i /><i /></div><small>Co-founder / Business & Delivery</small><h3>Co-founder</h3><p>Business development, project delivery and company operations.</p></article></Reveal></div></div></section><section className="principles-band"><div className="section"><SectionTitle eyebrow="Principles" title="How we want to operate as a company." /><div className="principles-grid">{[['Clarity','Clear scope, communication and interfaces.'],['Ownership','Responsibility for the outcome, not only the task.'],['Practicality','Technology choices that solve real needs.'],['Growth','Systems designed for the next stage of the business.']].map(([title, copy], index) => <Reveal key={title} delay={index * 70}><article><span>0{index + 1}</span><h3>{title}</h3><p>{copy}</p></article></Reveal>)}</div></div></section><CorporateCTA /></>
+  const direction = [['Now', 'Build a strong delivery standard and a focused portfolio of useful digital systems.'], ['Next', 'Expand the team and deepen capability across product, engineering and AI.'], ['Long term', 'Become a trusted technology partner for companies building and modernizing digital operations.']]
+  return <><PageHero eyebrow="Company" title="A technology company built around clarity, ownership and useful systems." copy="Smart System brings product thinking, frontend engineering and AI capability together in one focused team." /><section className="section company-page-grid"><Reveal><h2>We want to become a long-term technology partner for growing businesses.</h2></Reveal><Reveal delay={100}><p>Our goal is not to produce isolated screens or short-lived websites. We want to understand how a business works, identify where technology can create value and build systems that remain useful as the company grows.</p><p>That means organized delivery, maintainable frontend architecture, practical design decisions and direct communication throughout the project.</p></Reveal></section><section className="direction-band"><div className="section"><SectionTitle eyebrow="Company direction" title="Build the foundation first. Grow the capability without losing clarity." /><div className="direction-timeline">{direction.map(([phase, copy], index) => <Reveal key={phase} delay={index * 80}><article><span>0{index + 1}</span><div className="direction-line"><i /></div><strong>{phase}</strong><p>{copy}</p></article></Reveal>)}</div></div></section><section className="leadership-band"><div className="section"><SectionTitle eyebrow="Founding team" title="Two responsibilities. One connected company." copy="The founding structure keeps product, technology and delivery close to every project." /><div className="leadership-grid"><Reveal><article><div className="leader-visual leader-one"><span>MW</span><i /><i /></div><small>Co-founder / Product & Technology</small><h3>Mohammed Waleed</h3><p>Frontend engineering, digital product systems and AI.</p></article></Reveal><Reveal delay={100}><article><div className="leader-visual leader-two"><span>SS</span><i /><i /></div><small>Co-founder / Business & Delivery</small><h3>Co-founder</h3><p>Business development, project delivery and company operations.</p></article></Reveal></div></div></section><section className="principles-band"><div className="section"><SectionTitle eyebrow="Principles" title="How we want to operate as a company." /><div className="principles-grid">{[['Clarity','Clear scope, communication and interfaces.'],['Ownership','Responsibility for the outcome, not only the task.'],['Practicality','Technology choices that solve real needs.'],['Growth','Systems designed for the next stage of the business.']].map(([title, copy], index) => <Reveal key={title} delay={index * 70}><article><span>0{index + 1}</span><h3>{title}</h3><p>{copy}</p></article></Reveal>)}</div></div></section><CorporateCTA /></>
 }
 
 function CareersPage() {
   const culture = [['Own the outcome', 'Take responsibility beyond the ticket.'], ['Care about craft', 'Quality is visible in the small decisions.'], ['Keep learning', 'Technology changes; curiosity stays useful.']]
-  return <><PageHero eyebrow="Careers" title="Join a team building the foundation of a modern technology company." copy="We are interested in people who care about quality, take ownership and enjoy solving real product problems." /><section className="section culture-section"><SectionTitle eyebrow="Working at Smart System" title="A small team with high ownership." /><div className="culture-grid">{culture.map(([title, copy], index) => <Reveal key={title} delay={index * 70}><article><span>0{index + 1}</span><h3>{title}</h3><p>{copy}</p></article></Reveal>)}</div></section><section className="section page-section careers-list"><div className="careers-head"><h2>Open positions</h2><span>{jobs.length} roles</span></div>{jobs.map(([title, department, location], index) => <Reveal key={title} delay={index * 60}><a className="career-row" href="#/contact"><div><small>{department}</small><h3>{title}</h3></div><span>{location}</span><Arrow /></a></Reveal>)}<Reveal><div className="open-application"><div><small>Open application</small><h3>Think you can add value to Smart System?</h3></div><p>Send your CV, portfolio or GitHub profile and tell us where you can contribute.</p><a href="#/contact">Contact us <Arrow /></a></div></Reveal></section><section className="hiring-band"><div className="section"><SectionTitle eyebrow="Hiring process" title="Simple, direct and focused on how you think." /><div className="hiring-steps">{[['01','Introduction'],['02','Practical discussion'],['03','Role fit'],['04','Decision']].map(([number,title], index) => <Reveal key={number} delay={index * 60}><div><span>{number}</span><strong>{title}</strong></div></Reveal>)}</div></div></section></>
+  return <><PageHero eyebrow="Careers" title="Join a team building the foundation of a modern technology company." copy="We are interested in people who care about quality, take ownership and enjoy solving real product problems." /><section className="section culture-section"><SectionTitle eyebrow="Working at Smart System" title="A small team with high ownership." /><div className="culture-grid">{culture.map(([title, copy], index) => <Reveal key={title} delay={index * 70}><article><span>0{index + 1}</span><h3>{title}</h3><p>{copy}</p></article></Reveal>)}</div></section><section className="section page-section careers-list"><div className="careers-head"><h2>Open positions</h2><span>{jobs.length} roles</span></div>{jobs.map((job, index) => <Reveal key={job.slug} delay={index * 60}><a className="career-row" href={`#/careers/${job.slug}`}><div><small>{job.department}</small><h3>{job.title}</h3></div><span>{job.location}</span><Arrow /></a></Reveal>)}<Reveal><div className="open-application"><div><small>Open application</small><h3>Think you can add value to Smart System?</h3></div><p>Send your CV, portfolio or GitHub profile and tell us where you can contribute.</p><a href="#/contact">Contact us <Arrow /></a></div></Reveal></section><section className="hiring-band"><div className="section"><SectionTitle eyebrow="Hiring process" title="Simple, direct and focused on how you think." /><div className="hiring-steps">{[['01','Introduction'],['02','Practical discussion'],['03','Role fit'],['04','Decision']].map(([number,title], index) => <Reveal key={number} delay={index * 60}><div><span>{number}</span><strong>{title}</strong></div></Reveal>)}</div></div></section></>
+}
+
+function JobPage({ slug }: { slug: string }) {
+  const job = jobs.find((item) => item.slug === slug)
+  if (!job) return <NotFoundPage />
+  return <><section className="job-hero"><Reveal><a className="back-link" href="#/careers">← Back to careers</a><span className="eyebrow">{job.department}</span><h1>{job.title}</h1><p>{job.summary}</p><div className="job-meta"><span>{job.location}</span><span>Smart System</span></div></Reveal><Reveal className="job-orbit" delay={100}><i /><i /><i /><b>{job.title.split(' ').map((part) => part[0]).join('').slice(0,2)}</b></Reveal></section><section className="section job-body"><Reveal><span className="eyebrow">What matters</span><h2>Strong fundamentals, ownership and the ability to think beyond a single task.</h2></Reveal><Reveal delay={100}><div className="job-strengths">{job.strengths.map((strength) => <span key={strength}>{strength}</span>)}</div><p>We care about people who communicate clearly, learn quickly and care about the quality of the complete product experience.</p><a className="btn btn-dark" href="#/contact">Apply / introduce yourself <Arrow /></a></Reveal></section></>
 }
 
 function ContactPage() {
-  return <section className="contact-page"><Reveal className="contact-intro"><span className="eyebrow">Contact</span><h1>Tell us what your business needs to improve.</h1><p>Share the challenge, process or digital product you want to build. We can start from the business problem and define the right next step.</p><div className="contact-details"><div><span>Best starting point</span><strong>Project brief</strong></div><div><span>Current status</span><strong>Accepting selected projects</strong></div><div><span>Typical topics</span><strong>Platforms · AI · Commerce</strong></div></div></Reveal><Reveal delay={120}><form className="contact-form" onSubmit={(event) => event.preventDefault()}><div className="form-row"><label>Name<input placeholder="Your name" /></label><label>Email<input type="email" placeholder="you@company.com" /></label></div><label>Company<input placeholder="Company name" /></label><label>What do you need?<select defaultValue=""><option value="" disabled>Select a service</option><option>Digital platform</option><option>AI & automation</option><option>E-commerce</option><option>UI / UX design</option><option>Technical consulting</option></select></label><label>Project details<textarea rows={7} placeholder="Tell us about the challenge, goals and timing..." /></label><button className="btn btn-primary" type="submit">Send project brief <Arrow /></button><small>Frontend demo only — submission will be connected when the backend is ready.</small></form></Reveal></section>
+  const [scope, setScope] = useState('Digital platform')
+  const scopes = ['Digital platform', 'AI & automation', 'E-commerce', 'UI / UX', 'Consulting']
+  return <section className="contact-page creative-contact"><Reveal className="contact-intro"><span className="eyebrow">Contact</span><h1>Tell us what your business needs to improve.</h1><p>Share the challenge, process or digital product you want to build. We can start from the business problem and define the right next step.</p><div className="contact-details"><div><span>Best starting point</span><strong>Project brief</strong></div><div><span>Current status</span><strong>Accepting selected projects</strong></div><div><span>Typical topics</span><strong>Platforms · AI · Commerce</strong></div></div><div className="contact-orbit" aria-hidden="true"><i /><i /><i /><b>S</b></div></Reveal><Reveal delay={120}><form className="contact-form" onSubmit={(event) => event.preventDefault()}><div className="form-progress"><span>01</span><i /><b>Project brief</b></div><div className="form-row"><label>Name<input placeholder="Your name" /></label><label>Email<input type="email" placeholder="you@company.com" /></label></div><label>Company<input placeholder="Company name" /></label><fieldset className="scope-field"><legend>What do you need?</legend><div className="scope-options">{scopes.map((item) => <button type="button" key={item} className={scope === item ? 'active' : ''} onClick={() => setScope(item)}>{item}</button>)}</div><input type="hidden" name="scope" value={scope} /></fieldset><label>Project details<textarea rows={7} placeholder="Tell us about the challenge, goals and timing..." /></label><button className="btn btn-primary" type="submit">Send project brief <Arrow /></button><small>Frontend demo only — submission will be connected when the backend is ready.</small></form></Reveal></section>
 }
 
 function CorporateCTA() {
-  return <section className="cta-wrap"><Reveal className="cta-card"><div><span className="eyebrow">Start a project</span><h2>Have a business challenge that technology can solve?</h2><p>Tell us what you are trying to improve and we will help define the right digital approach.</p></div><a className="btn btn-light" href="#/contact">Talk to Smart System <Arrow /></a></Reveal></section>
+  return <section className="cta-wrap"><Reveal className="cta-card creative-cta"><div className="cta-orbit" aria-hidden="true"><i /><i /><b>S</b></div><div><span className="eyebrow">Start a project</span><h2>Have a business challenge that technology can solve?</h2><p>Tell us what you are trying to improve and we will help define the right digital approach.</p></div><a className="btn btn-light" href="#/contact">Talk to Smart System <Arrow /></a></Reveal></section>
+}
+
+function NotFoundPage() {
+  return <section className="not-found"><div className="not-found-orbit"><i /><i /><i /><b>404</b></div><span className="eyebrow">Page not found</span><h1>This route is outside the system.</h1><p>The page may have moved, or the link may be incomplete.</p><a className="btn btn-dark" href="#/">Return home <Arrow /></a></section>
 }
 
 function Footer() {
@@ -218,14 +272,19 @@ function Footer() {
 }
 
 function App() {
-  const [route, setRoute] = useState<RouteKey>(currentRoute())
+  const [route, setRoute] = useState<RouteState>(currentRoute())
   useEffect(() => {
     const sync = () => { setRoute(currentRoute()); window.scrollTo({ top: 0, behavior: 'smooth' }) }
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
   }, [])
-  const page = useMemo(() => ({ home: <HomePage />, solutions: <SolutionsPage />, services: <ServicesPage />, industries: <IndustriesPage />, work: <WorkPage />, company: <CompanyPage />, careers: <CareersPage />, contact: <ContactPage /> })[route], [route])
-  return <div className="app"><Header route={route} /><main key={route} className="page-transition">{page}</main>{route !== 'contact' && <Footer />}</div>
+  const page = useMemo(() => {
+    if (route.page === 'case') return <CaseStudyPage slug={route.slug} />
+    if (route.page === 'job') return <JobPage slug={route.slug} />
+    if (route.page === 'notfound') return <NotFoundPage />
+    return ({ home: <HomePage />, solutions: <SolutionsPage />, services: <ServicesPage />, industries: <IndustriesPage />, work: <WorkPage />, company: <CompanyPage />, careers: <CareersPage />, contact: <ContactPage /> })[route.page]
+  }, [route])
+  return <div className="app"><Header route={route} /><main key={`${route.page}-${'slug' in route ? route.slug : ''}`} className="page-transition">{page}</main>{route.page !== 'contact' && <Footer />}</div>
 }
 
 export default App
